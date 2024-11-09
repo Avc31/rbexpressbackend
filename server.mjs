@@ -1,10 +1,12 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import 'dotenv/config';
 import connectToDatabase from './connectdb.mjs';
 import { ObjectId } from 'mongodb';
 
 const app = express();
 const PORT = process.env.PORT;
+const JWT_SECRET = process.env.JWT_SECRET;
 
 let db;
 (async () => {
@@ -12,6 +14,34 @@ let db;
 })();
 
 app.use(express.json());
+
+const authenticateJWT = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1]; 
+  if (!token) {
+    return res.status(403).json({ message: "Token is missing" });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(403).json({ message: "Invalid token" });
+    }
+    req.user = decoded; 
+    next();
+  });
+};
+
+
+app.post('/api/login', async (req, res) => {
+  const { username } = req.body;
+
+
+  const user = { username };
+
+  const token = jwt.sign(user, JWT_SECRET, { expiresIn: '1h' });
+  res.json({ token });
+});
+
+app.use('/api/:resource', authenticateJWT);
 
 // Routes
 
